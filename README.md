@@ -85,9 +85,13 @@ Or remote (HTTP):
 }
 ```
 
+## When to use this vs official
+
+Memos already ships an official in-process MCP at `/mcp` (`server/router/mcp` — the one `https://memos.junilab.xyz/mcp` exposes, which `opencode` uses by default). Use this Rust server when you need: a standalone binary for any Memos instance (local dev, remote host), the extra `tags` helpers, prompts (`capture`/`digest`/`tag_overview`/`relation_graph`), `memo://` resources, or per-route `X-MCP-*` filtering (`/mcp/readonly`, `/mcp/x/{toolsets}`) without patching Memos.
+
 ## Study
 
-Full comparison of 9 community Memos MCPs vs official package lives one level up: `../SUMMARY.md` + `../repos/` (cloned `official-memos`, `chriscurrycc/memos-mcp`, `mylxsw`, etc.). Official source of truth: `server/router/mcp/*`, `proto/gen/openapi.yaml` in `../repos/official-memos/`.
+Built from a study of 9 community Memos MCPs vs the official Go package at Memos `v0.30.0` (`server/router/mcp/catalog.go` + `proto/gen/openapi.yaml`). The 2 `tags` tools are ported from `chriscurrycc/memos-mcp` (Memos has no tag API — tags are aggregated client-side from `ListMemos` and rename is a `content` rewrite). Verified live against Memos `0.30.0`.
 
 ## License
 

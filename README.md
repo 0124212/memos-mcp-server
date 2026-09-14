@@ -1,5 +1,11 @@
 # memos-mcp-server
 
+[![Rust](https://img.shields.io/badge/rust-1.82%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
+[![Memos](https://img.shields.io/badge/memos-0.30-blue?style=flat-square)](https://github.com/usememos/memos)
+[![MCP](https://img.shields.io/badge/MCP-streamable--http%20%2B%20stdio-green?style=flat-square)](https://modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue?style=flat-square&logo=docker)](Dockerfile)
+
 Standalone Rust MCP server for [Memos](https://github.com/usememos/memos) — speaks the same 20 curated tools as the official Go `server/router/mcp` package, but runs as a separate HTTP service over any Memos instance.
 
 Built on [`rmcp` 3.3.0](https://github.com/modelcontextprotocol/rust-sdk) (`modelcontextprotocol/rust-sdk`, not `rustify-community/rmcp`) + `axum` + `reqwest`.
@@ -46,20 +52,31 @@ Env:
 ## Run
 
 ```bash
+# from source
 cargo run -- --stdio
 # or
 MEMOS_URL=https://memos.junilab.xyz MEMOS_TOKEN=memos_pat_xxx BIND=127.0.0.1:8080 cargo run
 # check
 curl -H "Authorization: Bearer $MEMOS_TOKEN" http://127.0.0.1:8080/mcp # 405 on GET is ok, POST tools/list via MCP client
+
+# install binary
+cargo install --git https://github.com/0124212/memos-mcp-server
+memos-mcp-server --stdio
+# or: cargo install --path . (local clone)
 ```
 
-### Docker
+### Docker (256MB, `debian:bookworm-slim`)
 
 ```bash
 docker build -t memos-mcp-server .
 docker run --rm -p 8080:8080 -e MEMOS_URL=https://memos.junilab.xyz -e MEMOS_TOKEN=memos_pat_xxx memos-mcp-server
-# or compose (ak)
-# see docker-compose.yml fragment in this repo
+# or ghcr if you push: docker pull ghcr.io/0124212/memos-mcp-server:main
+# compose (ak) — add to your memos stack:
+#   memos-mcp:
+#     build: https://github.com/0124212/memos-mcp-server.git
+#     image: memos-mcp-server:main
+#     environment: { MEMOS_URL: https://memos.junilab.xyz, MEMOS_TOKEN: ${MEMOS_ADMIN_PAT}, BIND: 0.0.0.0:8080 }
+#     ports: ["127.0.0.1:8081:8080"]
 ```
 
 ### opencode local MCP

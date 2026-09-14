@@ -1,0 +1,27 @@
+[package]
+name = "memos-mcp-server"
+version = "0.1.0"
+edition = "2024"
+description = "Standalone Rust MCP server for Memos — 20 curated tools + tags/prompts/resources, Streamable HTTP + stdio"
+license = "MIT"
+repository = "https://github.com/0124212/memos-mcp-server"
+keywords = ["memos", "mcp", "model-context-protocol", "rmcp", "notes"]
+authors = ["asher <asher@junilab.xyz>"]
+
+[dependencies]
+rmcp = { version = "3.3.0", features = ["server", "macros", "transport-streamable-http-server", "transport-io"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+axum = { version = "0.8", features = ["http1", "tokio"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+anyhow = "1"
+tokio-util = "0.7"
+url = "2"
+regex = "1"
+bytes = "1"
+http = "1"
+http-body-util = "0.1"

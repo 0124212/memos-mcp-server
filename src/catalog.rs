@@ -62,3 +62,56 @@ pub fn filter_tools(
         .map(|(name, ..)| *name)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn names(readonly: bool, toolsets: &[&str], include: &[&str], exclude: &[&str]) -> HashSet<String> {
+        filter_tools(
+            readonly,
+            &toolsets.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            &include.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            &exclude.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .map(str::to_string)
+        .collect()
+    }
+
+    #[test]
+    fn full_catalog_has_22_tools() {
+        assert_eq!(names(false, &[], &[], &[]).len(), 22);
+    }
+
+    #[test]
+    fn readonly_keeps_only_readonly_tools() {
+        let got = names(true, &[], &[], &[]);
+        assert_eq!(got.len(), 11);
+        assert!(got.contains("memo_list_memos"));
+        assert!(got.contains("tag_list_tags"));
+        assert!(!got.contains("memo_create_memo"));
+        assert!(!got.contains("tag_rename_tag"));
+    }
+
+    #[test]
+    fn toolset_filter_selects_tags() {
+        let got = names(false, &["tags"], &[], &[]);
+        assert_eq!(got, HashSet::from(["tag_list_tags".to_string(), "tag_rename_tag".to_string()]));
+    }
+
+    #[test]
+    fn include_and_exclude_combine() {
+        let got = names(false, &[], &["memo_list_memos", "memo_create_memo"], &["memo_create_memo"]);
+        assert_eq!(got, HashSet::from(["memo_list_memos".to_string()]));
+    }
+
+    #[test]
+    fn readonly_plus_toolset() {
+        let got = names(true, &["memos"], &[], &[]);
+        assert!(got.contains("memo_list_memos"));
+        assert!(!got.contains("memo_create_memo"));
+        assert!(!got.contains("tag_list_tags"));
+    }
+}

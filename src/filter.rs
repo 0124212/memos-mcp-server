@@ -179,3 +179,63 @@ impl ServerHandler for FilteredServer {
         self.inner.read_memo_resource(&request.uri).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::{HeaderMap, HeaderName, HeaderValue};
+
+    fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
+        let mut h = HeaderMap::new();
+        for (k, v) in pairs {
+            h.insert(
+                k.parse::<HeaderName>().expect("header name"),
+                HeaderValue::from_str(v).expect("header value"),
+            );
+        }
+        h
+    }
+
+    #[test]
+    fn path_aliases() {
+        assert!(!ToolFilter::default().with_path("/mcp").readonly);
+        assert!(ToolFilter::default().with_path("/mcp/readonly").readonly);
+        let f = ToolFilter::default().with_path("/mcp/x/memos,tags");
+        assert_eq!(f.toolsets, vec!["memos".to_string(), "tags".to_string()]);
+        assert!(!f.readonly);
+        let f = ToolFilter::default().with_path("/mcp/x/reactions/readonly");
+        assert!(f.readonly);
+        assert_eq!(f.toolsets, vec!["reactions".to_string()]);
+    }
+
+    #[test]
+    fn headers_parse() {
+        let f = ToolFilter::from_headers(&headers(&[
+            ("x-mcp-readonly", "true"),
+            ("x-mcp-toolsets", "tags, memos"),
+            ("x-mcp-exclude-tools", "tag_rename_tag"),
+        ]));
+        assert!(f.readonly);
+        assert_eq!(f.toolsets, vec!["tags".to_string(), "memos".to_string()]);
+        assert!(f.include.is_empty());
+        assert_eq!(f.exclude, vec!["tag_rename_tag".to_string()]);
+
+        let f = ToolFilter::from_headers(&headers(&[]));
+        assert!(!f.readonly);
+        assert!(f.toolsets.is_empty());
+    }
+
+    #[test]
+    fn allow_list_matches_catalog() {
+        let f = ToolFilter {
+            readonly: true,
+            toolsets: vec![],
+            include: vec![],
+            exclude: vec![],
+        };
+        let allow = f.allow_list();
+        assert_eq!(allow.len(), 11);
+        assert!(allow.contains("memo_list_memos"));
+        assert!(!allow.contains("memo_create_memo"));
+    }
+}

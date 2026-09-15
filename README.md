@@ -1,12 +1,12 @@
 # memos-mcp-server
 
-[![Rust](https://img.shields.io/badge/rust-1.82%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![Memos](https://img.shields.io/badge/memos-0.30-blue?style=flat-square)](https://github.com/usememos/memos)
 [![MCP](https://img.shields.io/badge/MCP-streamable--http%20%2B%20stdio-green?style=flat-square)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-blue?style=flat-square&logo=docker)](Dockerfile)
 
-Standalone Rust MCP server for [Memos](https://github.com/usememos/memos) — speaks the same 20 curated tools as the official Go `server/router/mcp` package, but runs as a separate HTTP service over any Memos instance.
+Standalone Rust MCP server for [Memos](https://github.com/usememos/memos) — the same 20 curated tools as the official Go `server/router/mcp` package, plus 2 tag helpers, 4 prompts, and `memo://` resources. Runs as a separate HTTP service over any Memos instance.
 
 Built on [`rmcp` 3.3.0](https://github.com/modelcontextprotocol/rust-sdk) (`modelcontextprotocol/rust-sdk`, not `rustify-community/rmcp`) + `axum` + `reqwest`.
 
@@ -22,15 +22,15 @@ Built on [`rmcp` 3.3.0](https://github.com/modelcontextprotocol/rust-sdk) (`mode
 | `relations` | `memo_list_memo_relations`, `memo_set_memo_relations` |
 | `tags` | `tag_list_tags`, `tag_rename_tag` |
 
-Plus 4 prompts (`capture`, `digest`, `tag_overview`, `relation_graph`) and 2 resource templates (`memo://memos/{uid}`, `memo://prompts/{name}`) — extensions beyond the official tools-only package.
+Plus 4 prompts (`capture`, `digest`, `tag_overview`, `relation_graph`) and resources (`memo://memos/{uid}` template plus `memo://prompts/*` entries) — extensions beyond the official tools-only package.
 
-Tool names, REST mappings, and readonly flags mirror `server/router/mcp/catalog.go` at Memos `v0.30.0` (verified live against `0.30.0` with `bytes` field quirks patched).
+Tool names, REST mappings, and readonly flags mirror `server/router/mcp/catalog.go` at Memos `v0.30.0`, verified live against `0.30.0`.
 
 ## Transports
 
 - **Streamable HTTP (default, stateless, JSON)** on `BIND` (default `127.0.0.1:8080`):
   - `POST/GET/DELETE /mcp` — full catalog
-  - `POST/GET/DELETE /mcp/readonly` — 10 write tools rejected
+  - `POST/GET/DELETE /mcp/readonly` — 11 read-only tools; writes rejected
   - `POST/GET/DELETE /mcp/x/{toolsets}` and `/mcp/x/{toolsets}/readonly` — per-route toolset filter
   - Per-request headers `X-MCP-Readonly`, `X-MCP-Toolsets`, `X-MCP-Tools`, `X-MCP-Exclude-Tools` further narrow the catalog (stateless: each request builds a freshly filtered service).
 - **stdio**: `--stdio` flag or `MEMOS_MCP_STDIO=1`, for Claude Code / `opencode` local MCP.

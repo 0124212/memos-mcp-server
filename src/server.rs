@@ -289,6 +289,8 @@ fn text_resource(uri: &str, text: &str) -> ReadResourceResponse {
 
 fn memo_markdown(memo: &Value) -> String {
     let get = |k: &str| memo.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    // The API returns `name: "memos/UID"` (no `uid` field) — derive it.
+    let uid = bare_id(get("name"));
     let tags = memo
         .get("tags")
         .and_then(|t| t.as_array())
@@ -299,7 +301,7 @@ fn memo_markdown(memo: &Value) -> String {
                 .join(", ")
         })
         .unwrap_or_default();
-    let mut fm = vec!["---".to_string(), format!("uid: {}", get("uid")), format!("visibility: {}", get("visibility"))];
+    let mut fm = vec!["---".to_string(), format!("uid: {uid}"), format!("visibility: {}", get("visibility"))];
     if memo.get("pinned").and_then(|v| v.as_bool()).unwrap_or(false) {
         fm.push("pinned: true".to_string());
     }
@@ -310,6 +312,22 @@ fn memo_markdown(memo: &Value) -> String {
     }
     fm.push("---".to_string());
     format!("{}\n\n{}", fm.join("\n"), get("content"))
+}
+
+/// Compiled matcher for `#old` plus any `/child` suffix segments.
+///
+/// `regex` supports no look-around, so the trailing boundary char (or
+/// end-of-string) is captured and re-emitted by [`apply_tag_rename`] as `$2`
+/// instead of asserting `(?![\w\-/])`.
+fn tag_rename_regex(old: &str) -> Result<Regex, regex::Error> {
+    Regex::new(&format!(
+        r"#{}((?:/[\w\-]+)*)([^\w\-/]|$)",
+        regex::escape(old)
+    ))
+}
+
+fn apply_tag_rename(re: &Regex, content: &str, new: &str) -> String {
+    re.replace_all(content, format!("#{new}$1$2")).to_string()
 }
 
 fn guess_mime(filename: &str) -> &str {
@@ -714,7 +732,7 @@ impl MemosServer {
             Ok(m) => m,
             Err(e) => return api_fail(e),
         };
-        let re = match Regex::new(&format!(r"#{}((?:/[\w\-]+)*)(?![\w\-/])", regex::escape(&old))) {
+        let re = match tag_rename_regex(&old) {
             Ok(r) => r,
             Err(e) => return CallToolResult::error(vec![ContentBlock::text(format!("bad tag pattern: {e}"))]),
         };
@@ -726,7 +744,7 @@ impl MemosServer {
             if name.is_empty() {
                 continue;
             }
-            let rewritten = re.replace_all(&content, format!("#{new}$1")).to_string();
+            let rewritten = apply_tag_rename(&re, &content, &new);
             if rewritten == content {
                 continue;
             }
@@ -899,5 +917,78 @@ impl MemosServer {
 
     pub fn list_prompts_all(&self) -> ListPromptsResult {
         ListPromptsResult { prompts: Self::prompt_router().list_all(), ..Default::default() }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rename(old: &str, new: &str, content: &str) -> String {
+        let re = tag_rename_regex(old).expect("test pattern compiles");
+        apply_tag_rename(&re, content, new)
+    }
+
+    #[test]
+    fn rename_simple_and_end_of_string() {
+        assert_eq!(rename("rust", "rustlang", "I love #rust"), "I love #rustlang");
+        assert_eq!(rename("rust", "rustlang", "#rust"), "#rustlang");
+    }
+
+    #[test]
+    fn rename_preserves_boundary_char() {
+        assert_eq!(rename("rust", "rustlang", "#rust, and #rust."), "#rustlang, and #rustlang.");
+        assert_eq!(rename("rust", "rustlang", "#rust\nmore"), "#rustlang\nmore");
+        assert_eq!(rename("rust", "rustlang", "(#rust)"), "(#rustlang)");
+    }
+
+    #[test]
+    fn rename_does_not_match_longer_tag() {
+        assert_eq!(rename("e2e-test", "e2e-done", "#e2e-testing"), "#e2e-testing");
+        assert_eq!(
+            rename("e2e-test", "e2e-done", "#e2e-test #e2e-testing"),
+            "#e2e-done #e2e-testing"
+        );
+    }
+
+    #[test]
+    fn rename_keeps_child_segments() {
+        assert_eq!(
+            rename("parent", "p2", "#parent/child and #parent"),
+            "#p2/child and #p2"
+        );
+        assert_eq!(
+            rename("parent/child", "parent/kid", "#parent/child/grand"),
+            "#parent/kid/grand"
+        );
+    }
+
+    #[test]
+    fn rename_multiple_occurrences() {
+        assert_eq!(
+            rename("a", "b", "#a #a! #a?"),
+            "#b #b! #b?"
+        );
+    }
+
+    #[test]
+    fn rename_escapes_regex_meta_in_old_tag() {
+        assert_eq!(rename("a.b", "c", "#a.b x"), "#c x");
+        assert_eq!(rename("a.b", "c", "#axb"), "#axb");
+    }
+
+    #[test]
+    fn memo_markdown_derives_uid_from_name() {
+        let memo = json!({
+            "name": "memos/abc123",
+            "content": "hello #x",
+            "visibility": "PRIVATE",
+            "createTime": "2026-01-01T00:00:00Z",
+            "updateTime": "2026-01-02T00:00:00Z",
+            "tags": ["x"],
+        });
+        let md = memo_markdown(&memo);
+        assert!(md.contains("uid: abc123"), "uid missing: {md}");
+        assert!(md.contains("hello #x"));
     }
 }

@@ -71,6 +71,10 @@ pub struct CreateMemoParams {
     pub content: String,
     pub visibility: Option<String>,
     pub create_time: Option<String>,
+    /// Pin the memo on creation.
+    pub pinned: Option<bool>,
+    /// Client-assigned UID (`memoId` query param).
+    pub memo_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -102,6 +106,8 @@ pub struct MemoPageParams {
 pub struct CreateMemoCommentParams {
     pub memo: String,
     pub content: String,
+    /// Client-assigned UID (`commentId` query param).
+    pub comment_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -378,7 +384,11 @@ impl MemosServer {
         if let Some(t) = p.create_time {
             body["createTime"] = json!(t);
         }
-        match self.client.post("/api/v1/memos", body).await {
+        if let Some(pinned) = p.pinned {
+            body["pinned"] = json!(pinned);
+        }
+        let q = opt_query(vec![("memoId", p.memo_id)]);
+        match self.client.post_q("/api/v1/memos", q, body).await {
             Ok(v) => ok_json(v),
             Err(e) => api_fail(e),
         }
@@ -466,7 +476,12 @@ impl MemosServer {
         Parameters(p): Parameters<CreateMemoCommentParams>,
     ) -> CallToolResult {
         let path = format!("/api/v1/memos/{}/comments", bare_id(&p.memo));
-        match self.client.post(&path, json!({ "content": p.content })).await {
+        let q = opt_query(vec![("commentId", p.comment_id)]);
+        match self
+            .client
+            .post_q(&path, q, json!({ "content": p.content }))
+            .await
+        {
             Ok(v) => ok_json(v),
             Err(e) => api_fail(e),
         }

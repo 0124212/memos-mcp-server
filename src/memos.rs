@@ -76,6 +76,15 @@ impl MemosClient {
         self.request(Method::POST, path, vec![], Some(body)).await
     }
 
+    pub async fn post_q(
+        &self,
+        path: &str,
+        query: Vec<(String, String)>,
+        body: Value,
+    ) -> Result<Value> {
+        self.request(Method::POST, path, query, Some(body)).await
+    }
+
     pub async fn patch(&self, path: &str, body: Value) -> Result<Value> {
         self.request(Method::PATCH, path, vec![], Some(body)).await
     }
